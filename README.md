@@ -1,247 +1,74 @@
 # SurgiScope — Evidence-Grounded Surgical Market Intelligence
 
-SurgiScope is an AI-powered research assistant for analyzing expert interviews about the **European robotic surgery market**.
+SurgiScope is an AI-powered research application for analyzing expert interviews about the **European robotic surgery market**.
 
-The application helps researchers analyze multiple expert interviews, answer structured interview-guide questions, ask custom cross-transcript questions, compare expert perspectives, identify common themes and differences, and trace generated insights back to the original interview evidence.
+It helps researchers:
 
-The system is designed around the principle:
+* Analyze expert interviews using a structured interview guide
+* Generate answers grounded in transcript evidence
+* Retrieve supporting quotes with expert, country, and timestamp
+* Compare perspectives across experts
+* Identify common themes and differences
+* Ask custom questions across transcripts
+* Indicate when the provided transcripts do not contain sufficient evidence
 
-> **Evidence first, generation second.**
-
-Instead of sending complete transcripts directly to a language model, SurgiScope first retrieves and filters relevant evidence from the provided interviews. The selected evidence is then passed to Gemini for grounded response generation.
-
----
-
-## Table of Contents
-
-* [Problem Statement](#problem-statement)
-* [Objective](#objective)
-* [Solution Overview](#solution-overview)
-* [Key Features](#key-features)
-* [Research Scope](#research-scope)
-* [Planning and Approach](#planning-and-approach)
-* [System Architecture](#system-architecture)
-* [RAG Pipeline](#rag-pipeline)
-* [Data Ingestion and Indexing](#data-ingestion-and-indexing)
-* [Retrieval and Relevance Filtering](#retrieval-and-relevance-filtering)
-* [Evidence and Hallucination Control](#evidence-and-hallucination-control)
-* [Application Workflow](#application-workflow)
-* [Technology Stack](#technology-stack)
-* [Project Structure](#project-structure)
-* [Requirements](#requirements)
-* [Installation](#installation)
-* [Environment Configuration](#environment-configuration)
-* [Running the Application](#running-the-application)
-* [Using the Application](#using-the-application)
-* [Example Questions](#example-questions)
-* [Unsupported Questions](#unsupported-questions)
-* [AI-Assisted Development](#ai-assisted-development)
-* [Challenges and Solutions](#challenges-and-solutions)
-* [Testing and Validation](#testing-and-validation)
-* [Limitations](#limitations)
-* [Scaling to 30+ Transcripts](#scaling-to-30-transcripts)
-* [Security](#security)
-* [Future Improvements](#future-improvements)
-* [Core Design Principles](#core-design-principles)
-* [Repository](#repository)
-* [Author](#author)
+The system follows an **evidence-first approach**: relevant transcript evidence is retrieved and filtered before Gemini generates the final response.
 
 ---
 
-# Problem Statement
+## Key Features
 
-The project focuses on analyzing expert interviews about the **European robotic surgery market**.
+### 1. Interview Guide
 
-The provided research material contains interviews with experts from France, Germany, and the United Kingdom, together with a structured interview guide.
+Provides answers to the six predefined research questions covering:
 
-Researchers need to:
+* Current robotic surgery adoption
+* Barriers to adoption
+* Hospital budgets and ROI
+* Surgeon training and clinical outcomes
+* 3–5 year adoption outlook
+* Hospital purchasing timelines
 
-* Review multiple interview transcripts
-* Find relevant statements
-* Answer predefined research questions
-* Compare expert perspectives
-* Identify common themes
-* Identify differences between experts
-* Verify answers against the original source
+Each answer is supported by relevant expert evidence.
 
-Manually performing these tasks across multiple transcripts can be time-consuming and makes it difficult to quickly trace an insight back to its source.
+### 2. Ask AI
 
-SurgiScope addresses this by combining semantic retrieval, metadata, relevance filtering, and grounded LLM generation into a single research workflow.
+Allows researchers to ask custom questions about the provided transcripts.
 
----
+The system retrieves relevant evidence, identifies the question topic, filters the evidence, and generates a grounded response.
 
-# Objective
+### 3. Cross-Expert Insights
 
-The main objectives of SurgiScope are to:
+Identifies:
 
-1. Answer the predefined interview-guide questions.
-2. Allow researchers to ask custom questions.
-3. Retrieve relevant evidence from the expert transcripts.
-4. Compare perspectives across experts.
-5. Identify common themes and differences.
-6. Preserve expert and source attribution.
-7. Clearly indicate when the available transcripts do not contain sufficient evidence.
-8. Reduce unsupported or hallucinated responses.
+* Common themes across experts
+* Differences in perspectives
+* Expert-specific estimates and viewpoints
 
-The application focuses on **traceability and evidence grounding**, rather than generating answers from unrestricted model knowledge.
+Different expert estimates are kept attributed to the respective expert rather than being combined into one unsupported conclusion.
 
----
+### 4. Evidence Traceability
 
-# Solution Overview
-
-SurgiScope uses a Retrieval-Augmented Generation (RAG) architecture.
-
-The overall workflow is:
-
-```text
-Expert Transcripts
-        ↓
-Parsing + Chunking
-        ↓
-Metadata Preservation
-        ↓
-Sentence Transformers
-all-MiniLM-L6-v2
-        ↓
-384-dimensional Embeddings
-        ↓
-ChromaDB
-        ↓
-User Question
-        ↓
-Query Embedding
-        ↓
-Semantic Retrieval
-        ↓
-Topic Classification
-        ↓
-Relevance Filtering
-        ↓
-Selected Evidence
-        ↓
-Gemini
-        ↓
-Grounded Answer
-        ↓
-Answer + Supporting Evidence
-```
-
-The key distinction is that **retrieval happens before generation**.
-
----
-
-# Key Features
-
-## Evidence-Grounded Q&A
-
-Questions are answered using relevant evidence retrieved from the provided transcripts.
-
-The application does not simply provide the complete transcript collection to Gemini.
-
-Instead:
-
-```text
-Question
-   ↓
-Retrieve
-   ↓
-Filter
-   ↓
-Select Evidence
-   ↓
-Generate
-```
-
-This makes the final response more traceable to the original research material.
-
----
-
-## Interview Guide
-
-The Interview Guide contains the six predefined research questions.
-
-The questions cover:
-
-1. Current adoption of robotic surgery in Europe
-2. Main barriers to robotic surgery adoption
-3. Importance of hospital budgets and ROI
-4. Importance of surgeon training and clinical outcomes
-5. Expected adoption trend over the next 3–5 years
-6. Typical hospital purchasing timeline
-
-For each question, the application retrieves relevant evidence from the expert transcripts.
-
----
-
-## Ask AI
-
-The Ask AI section allows researchers to ask custom questions about the provided transcripts.
-
-For example:
-
-```text
-What are the main barriers to robotic surgery adoption?
-```
-
-The question is embedded, relevant evidence is retrieved, topic-specific filtering is applied, and Gemini generates the final response from the selected evidence.
-
----
-
-## Cross-Expert Insights
-
-The Insights section helps compare the perspectives of the three experts.
-
-It identifies:
-
-* Common themes
-* Areas of agreement
-* Differences in emphasis
-* Expert-specific perspectives
-* Areas where estimates differ
-
-The application keeps expert-specific estimates attributed to the respective expert instead of combining them into an unsupported single conclusion.
-
----
-
-## Evidence Traceability
-
-The retrieved evidence preserves source metadata including:
+Responses can be traced back to the original interview evidence through:
 
 * Expert
 * Country
 * Timestamp
 * Transcript passage
-* Source information
 
-Example:
+### 5. Insufficient-Evidence Handling
 
-```text
-Expert: Dr. Jean Martin
-Country: France
-Timestamp: 01:20
-
-Supporting transcript passage...
-```
-
-This allows researchers to verify the generated response against the original interview.
-
----
-
-## Insufficient-Evidence Handling
-
-The application explicitly handles questions that are not supported by the provided transcripts.
-
-When sufficient evidence cannot be found, the application returns:
+If the provided transcripts do not contain enough information to answer a question, the system returns:
 
 > **Insufficient evidence in the provided transcripts.**
 
-This prevents the system from presenting unsupported information as if it came from the interview data.
+This prevents unsupported information from being presented as transcript evidence.
 
 ---
 
 # Research Scope
 
-The current case study contains three expert interviews:
+The current application analyzes three expert interviews:
 
 | Expert           | Country        |
 | ---------------- | -------------- |
@@ -249,640 +76,104 @@ The current case study contains three expert interviews:
 | Anna Keller      | Germany        |
 | Dr. Emily Carter | United Kingdom |
 
-The interviews discuss topics such as:
+The interviews cover topics including robotic surgery adoption, barriers, economics and ROI, training, clinical outcomes, growth expectations, and purchasing timelines.
 
-* Robotic surgery adoption
-* Hospital adoption differences
-* Financial and capital barriers
-* ROI and economics
-* Surgeon training
-* Clinical outcomes
-* Procedure-volume growth
-* Hospital purchasing processes
-* Future adoption outlook
-
-The application is designed to analyze the information contained in these provided interviews.
-
-It should **not** be interpreted as an independent database representing the complete European robotic surgery market.
+The application is designed to analyze the **provided interview data**, rather than independently represent the complete European robotic surgery market.
 
 ---
 
-# Planning and Approach
+# Planning & Approach
 
-The system was planned as an evidence-first RAG pipeline.
+The system was designed as a Retrieval-Augmented Generation (RAG) pipeline.
 
-## Step 1 — Understand the Research Material
+### 1. Transcript Processing
 
-The first step was to identify:
+The three transcripts are parsed and divided into smaller chunks.
 
-* Expert names
-* Countries
-* Transcript structure
-* Timestamps
-* Interview questions
-* Topics discussed
-* Relevant evidence sections
-
-This information is preserved during ingestion.
-
----
-
-## Step 2 — Parse and Chunk the Transcripts
-
-The transcripts are divided into smaller chunks.
-
-Each chunk retains metadata such as:
+Important metadata is preserved with each chunk:
 
 ```text
 Expert
 Country
 Timestamp
-Source File
+Source
 Transcript Text
 ```
 
-Preserving this information is important because the application needs to display the origin of retrieved evidence.
+### 2. Embedding Generation
 
----
-
-## Step 3 — Generate Embeddings
-
-Each transcript chunk is converted into a vector representation using:
+Transcript chunks are converted into embeddings using:
 
 ```text
 Sentence Transformers
-        ↓
 all-MiniLM-L6-v2
-        ↓
-384-dimensional embedding
 ```
 
-The same model is used to embed user queries.
+The model produces **384-dimensional embeddings**.
 
-This allows transcript passages and questions to be compared using semantic similarity.
+### 3. Vector Storage
 
----
+Embeddings, transcript text, and metadata are stored in **ChromaDB**.
 
-## Step 4 — Store the Data in ChromaDB
+### 4. Question Processing
 
-The generated embeddings are stored in ChromaDB together with the original transcript text and metadata.
-
-Conceptually:
-
-```text
-ChromaDB
-│
-├── Embedding
-├── Transcript Text
-├── Expert
-├── Country
-├── Timestamp
-└── Source File
-```
-
----
-
-## Step 5 — Retrieve Candidate Evidence
-
-When a researcher submits a question, the question is converted into an embedding.
-
-ChromaDB retrieves candidate transcript passages based on semantic similarity.
-
-However, semantic similarity alone is not enough.
-
-A passage may be related to a question without actually answering it.
-
----
-
-## Step 6 — Classify the Question
-
-The application identifies the main research topic of the question.
-
-The current topic categories are:
-
-```text
-Adoption
-Barriers
-ROI / Economics
-Training / Outcomes
-Growth Outlook
-Purchasing Timeline
-```
-
-This allows the retrieval process to apply question-specific filtering.
-
----
-
-## Step 7 — Apply Relevance Filtering
-
-Retrieved candidates are filtered to identify passages that actually answer the question.
-
-The system follows the principle:
-
-```text
-Retrieved
-   ≠
-Relevant
-   ≠
-Supported
-```
-
-This additional filtering improves retrieval precision compared with relying only on vector similarity.
-
----
-
-## Step 8 — Select Evidence
-
-The system selects the strongest relevant evidence while preserving expert diversity and source metadata.
-
-The selected evidence contains information such as:
-
-```text
-Expert
-Country
-Timestamp
-Quote / Transcript Passage
-```
-
----
-
-## Step 9 — Generate the Response
-
-The selected evidence is passed to Gemini.
-
-Gemini is instructed to:
-
-* Use only the provided evidence
-* Avoid inventing facts
-* Avoid inventing statistics
-* Avoid inventing quotations
-* Preserve expert attribution
-* Preserve uncertainty
-* Avoid unsupported generalizations
-* Clearly state when evidence is insufficient
-
----
-
-## Step 10 — Display the Answer
-
-The final response is displayed in the React frontend together with supporting evidence.
-
-This provides a complete research flow:
-
-```text
-Question
-   ↓
-Evidence
-   ↓
-Grounded Answer
-   ↓
-Source Verification
-```
-
----
-
-# System Architecture
-
-The complete architecture is:
-
-```text
-                    ┌──────────────────────────┐
-                    │   3 Expert Transcripts   │
-                    │ France / Germany / UK    │
-                    └────────────┬─────────────┘
-                                 │
-                                 ▼
-                     ┌──────────────────────┐
-                     │ Transcript Parsing   │
-                     │ + Chunking           │
-                     └──────────┬───────────┘
-                                │
-                 ┌──────────────┴──────────────┐
-                 │                             │
-                 ▼                             ▼
-        ┌─────────────────┐          ┌────────────────────┐
-        │ Transcript Text │          │ Metadata           │
-        │ Smaller chunks  │          │ Expert             │
-        │                 │          │ Country            │
-        └────────┬────────┘          │ Timestamp          │
-                 │                   │ Source file        │
-                 ▼                   └──────────┬─────────┘
-       ┌────────────────────────┐               │
-       │ Sentence Transformers  │               │
-       │ all-MiniLM-L6-v2       │               │
-       └───────────┬────────────┘               │
-                   │ 384-dim embeddings        │
-                   ▼                            ▼
-              ┌────────────────────────────────────┐
-              │              ChromaDB               │
-              │ Embedding + Text + Metadata        │
-              └────────────────┬───────────────────┘
-                               │
-                         INDEXING DONE
-                               │
-═══════════════════════════════╪═══════════════════════════════
-                               │
-                         USER ASKS QUESTION
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │    React Frontend    │
-                    │      Ask AI          │
-                    └──────────┬───────────┘
-                               │ HTTP / REST
-                               ▼
-                    ┌──────────────────────┐
-                    │    FastAPI Backend   │
-                    └──────────┬───────────┘
-                               ▼
-                 ┌───────────────────────────┐
-                 │ Query Embedding           │
-                 │ Sentence Transformers     │
-                 └────────────┬──────────────┘
-                              ▼
-                    ┌──────────────────────┐
-                    │       ChromaDB       │
-                    │ Semantic Retrieval   │
-                    │ Top candidate chunks │
-                    └──────────┬───────────┘
-                               ▼
-                 ┌────────────────────────────┐
-                 │    Topic Classification   │
-                 │ Adoption / Barriers / ROI │
-                 │ Training / Growth / etc. │
-                 └────────────┬───────────────┘
-                              ▼
-                 ┌────────────────────────────┐
-                 │ Relevance Filtering        │
-                 │ Is this passage actually   │
-                 │ answering the question?    │
-                 └────────────┬───────────────┘
-                              ▼
-                 ┌────────────────────────────┐
-                 │ Selected Evidence          │
-                 │ Expert + Country           │
-                 │ Timestamp + Quote          │
-                 └────────────┬───────────────┘
-                              ▼
-                    ┌──────────────────────┐
-                    │     Gemini LLM       │
-                    │ Grounded Generation  │
-                    └──────────┬───────────┘
-                               ▼
-                    ┌──────────────────────┐
-                    │ Final Answer         │
-                    │ + Evidence           │
-                    │ + Expert             │
-                    │ + Timestamp          │
-                    └──────────┬───────────┘
-                               ▼
-                    ┌──────────────────────┐
-                    │    React Frontend    │
-                    │  Display to User     │
-                    └──────────────────────┘
-```
-
----
-
-# RAG Pipeline
-
-The RAG pipeline has two major phases.
-
-## Phase 1 — Indexing
-
-```text
-Expert Transcripts
-        ↓
-Parsing
-        ↓
-Chunking
-        ↓
-Metadata Preservation
-        ↓
-Sentence Transformers
-        ↓
-all-MiniLM-L6-v2
-        ↓
-384-dimensional Embeddings
-        ↓
-ChromaDB
-```
-
-The resulting ChromaDB collection contains the transcript evidence required for retrieval.
-
----
-
-## Phase 2 — Query Processing
+When a researcher asks a question:
 
 ```text
 User Question
       ↓
 Query Embedding
       ↓
-ChromaDB Semantic Retrieval
-      ↓
-Candidate Evidence
+ChromaDB Retrieval
       ↓
 Topic Classification
       ↓
-Question-Specific Relevance Filtering
+Relevance Filtering
       ↓
 Selected Evidence
       ↓
 Gemini
       ↓
 Grounded Answer
-      ↓
-Evidence + Source Metadata
 ```
+
+### 5. Grounded Generation
+
+Only the selected transcript evidence is provided to Gemini for response generation.
+
+The generation process is instructed to:
+
+* Use only the provided evidence
+* Preserve expert attribution
+* Preserve uncertainty
+* Avoid inventing facts, numbers, quotes, or sources
+* Return insufficient evidence when appropriate
 
 ---
 
-# Data Ingestion and Indexing
-
-The application begins with the three provided expert transcripts.
-
-Each transcript is parsed into smaller evidence chunks.
-
-For example:
+# System Architecture
 
 ```text
-{
-    "expert": "Dr. Jean Martin",
-    "country": "France",
-    "timestamp": "01:20",
-    "source": "France transcript",
-    "text": "..."
-}
+┌──────────────────────────┐ │ 3 Expert Transcripts │ │ France / Germany / UK │ └────────────┬─────────────┘ │ ▼ ┌──────────────────────────┐ │ Transcript Parsing │ │ + Chunking │ └────────────┬─────────────┘ │ ┌────────────┴────────────┐ │ │ ▼ ▼ ┌──────────────────┐ ┌────────────────────┐ │ Transcript Text │ │ Metadata │ │ Smaller Chunks │ │ Expert │ │ │ │ Country │ └────────┬─────────┘ │ Timestamp │ │ │ Source File │ │ └──────────┬─────────┘ ▼ │ ┌──────────────────────┐ │ │ Sentence Transformers│ │ │ all-MiniLM-L6-v2 │ │ └──────────┬───────────┘ │ │ 384-dim Embeddings │ └──────────────┬───────────┘ │ ▼ ┌─────────────────────┐ │ ChromaDB │ │ │ │ Embeddings │ │ Transcript Text │ │ Metadata │ └──────────┬──────────┘ │ INDEXING COMPLETE │ ════════════════════════════════════╪════════════════════════════════════ │ ┌──────────┴──────────┐ │ │ │ QUERY PIPELINE │ │ │ ▼ │ ┌──────────────────────┐ │ │ React Frontend │ │ │ Interview Guide │ │ │ Ask AI / Insights │ │ └──────────┬───────────┘ │ │ HTTP / REST │ ▼ │ ┌──────────────────────┐ │ │ FastAPI Backend │ │ └──────────┬───────────┘ │ ▼ │ ┌──────────────────────┐ │ │ Query Embedding │ │ │ Sentence Transformers│ │ └──────────┬───────────┘ │ │ │ └─────────┐ │ ▼ │ ┌─────────────┐ │ │ ChromaDB │◄──┘ │ Retrieval │ └──────┬──────┘ ▼ ┌─────────────────────┐ │ Topic Classification│ │ │ │ Adoption │ │ Barriers │ │ ROI / Economics │ │ Training / Outcomes │ │ Growth │ │ Purchasing Timeline │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ Relevance Filtering │ │ │ │ Is the passage │ │ actually answering │ │ the question? │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ Selected Evidence │ │ │ │ Expert │ │ Country │ │ Timestamp │ │ Transcript Passage │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ Google Gemini │ │ Grounded Generation │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ Final Answer │ │ + Evidence │ │ + Source Info │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ React Frontend │ │ Display Result │ └─────────────────────┘
 ```
-
-The transcript text is embedded using:
-
-```text
-sentence-transformers/all-MiniLM-L6-v2
-```
-
-The model produces:
-
-```text
-384-dimensional embeddings
-```
-
-These embeddings and associated metadata are stored in ChromaDB.
-
----
-
-# Retrieval and Relevance Filtering
-
-One of the main technical considerations was improving retrieval precision.
-
-A semantic vector search can retrieve a passage that is conceptually related to a question but does not directly answer it.
-
-For example:
-
-```text
-Question:
-What is the typical purchasing timeline?
-
-Retrieved passage:
-Discussion about robotic surgery adoption.
-```
-
-The passage may be semantically related but is not sufficient evidence for the purchasing-timeline question.
-
-Therefore, the application performs:
-
-```text
-Semantic Retrieval
-        ↓
-Topic Classification
-        ↓
-Question-Specific Filtering
-        ↓
-Evidence Selection
-```
-
-The current retrieval logic handles topics including:
-
-* Adoption
-* Barriers
-* ROI / Economics
-* Training
-* Clinical Outcomes
-* Growth Outlook
-* Purchasing Timeline
-
----
-
-# Evidence and Hallucination Control
-
-SurgiScope is designed to keep generated answers grounded in the provided interview evidence.
-
-The generation layer is instructed not to:
-
-* Invent facts
-* Invent numbers
-* Invent statistics
-* Invent quotations
-* Invent expert opinions
-* Invent timestamps
-* Introduce unsupported external knowledge
-* Treat one expert as representing the entire European market
-* Combine different expert estimates into an unsupported single figure
-
-When sufficient evidence cannot be found, the system returns:
-
-```text
-Insufficient evidence in the provided transcripts.
-```
-
-This provides an explicit boundary between supported research evidence and unavailable information.
-
----
-
-# Application Workflow
-
-## Interview Guide
-
-The researcher can open the Interview Guide and select one of the six predefined questions.
-
-The application retrieves the relevant transcript evidence and generates an answer.
-
-The researcher can then inspect the evidence associated with the answer.
-
----
-
-## Ask AI
-
-The researcher can enter a custom question.
-
-For example:
-
-```text
-How important are hospital budgets and ROI when adopting robotic surgery?
-```
-
-The system processes the question through:
-
-```text
-Query Embedding
-      ↓
-Semantic Retrieval
-      ↓
-Topic Classification
-      ↓
-Relevance Filtering
-      ↓
-Evidence Selection
-      ↓
-Gemini
-```
-
-The final answer is displayed with supporting evidence.
-
----
-
-## Insights
-
-The Insights section provides cross-expert analysis.
-
-It identifies:
-
-```text
-Common Themes
-        +
-Differences in Perspective
-```
-
-The system preserves expert attribution when perspectives or estimates differ.
-
-For example, if different experts provide different growth expectations, the application does not merge those estimates into one unsupported forecast.
 
 ---
 
 # Technology Stack
 
-| Layer                     | Technology            |
-| ------------------------- | --------------------- |
-| Frontend                  | React                 |
-| Frontend Tooling          | Vite                  |
-| Frontend Language         | JavaScript            |
-| Backend                   | Python                |
-| API Framework             | FastAPI               |
-| Server                    | Uvicorn               |
-| Embedding Library         | Sentence Transformers |
-| Embedding Model           | `all-MiniLM-L6-v2`    |
-| Embedding Dimension       | 384                   |
-| Vector Database           | ChromaDB              |
-| Generative AI             | Google Gemini         |
-| Gemini SDK                | Google GenAI SDK      |
-| API Communication         | REST / JSON           |
-| Environment Configuration | python-dotenv         |
-| Version Control           | Git                   |
-| Repository Hosting        | GitHub                |
-
----
-
-# Technology Details
-
-## React + Vite
-
-React is used to build the interactive research interface.
-
-The frontend contains functionality for:
-
-* Interview Guide
-* Ask AI
-* Insights
-* Answer display
-* Evidence display
-
-Vite provides the frontend development and build tooling.
-
----
-
-## Python + FastAPI
-
-Python is used for the backend and RAG pipeline.
-
-FastAPI provides the REST API layer between the frontend and backend logic.
-
-The backend handles:
-
-* Transcript processing
-* Embedding generation
-* ChromaDB retrieval
-* Topic classification
-* Relevance filtering
-* Gemini interaction
-* Response formatting
-
----
-
-## Sentence Transformers
-
-The embedding model used by the application is:
-
-```text
-sentence-transformers/all-MiniLM-L6-v2
-```
-
-It generates:
-
-```text
-384-dimensional embeddings
-```
-
-The same model is used for:
-
-```text
-Transcript chunks
-        +
-User queries
-```
-
-This allows semantic comparison between the research questions and transcript evidence.
-
----
-
-## ChromaDB
-
-ChromaDB is used as the vector database.
-
-It stores:
-
-* Embeddings
-* Transcript text
-* Expert metadata
-* Country metadata
-* Timestamp metadata
-* Source metadata
-
-The database performs semantic similarity retrieval for incoming questions.
-
----
-
-## Google Gemini
-
-Gemini is used for final response generation.
-
-The application does not use Gemini as the transcript embedding model.
-
-Instead:
-
-```text
-Sentence Transformers
-        ↓
-Embedding
-        ↓
-ChromaDB Retrieval
-        ↓
-Evidence Filtering
-        ↓
-Gemini
-        ↓
-Grounded Response
-```
+| Component       | Technology              |
+| --------------- | ----------------------- |
+| Frontend        | React, Vite, JavaScript |
+| Backend         | Python, FastAPI         |
+| Server          | Uvicorn                 |
+| Embeddings      | Sentence Transformers   |
+| Embedding Model | `all-MiniLM-L6-v2`      |
+| Vector Database | ChromaDB                |
+| Generative AI   | Google Gemini           |
+| AI SDK          | Google GenAI SDK        |
+| API             | REST / JSON             |
+| Configuration   | python-dotenv           |
+| Version Control | Git, GitHub             |
 
 ---
 
@@ -896,10 +187,10 @@ SurgiScope-research-intelligence-app/
 │   │   ├── embeddings.py
 │   │   ├── main.py
 │   │   └── prompts.py
-│   │
 │   └── requirements.txt
 │
 ├── data/
+│   └── transcripts / research data
 │
 ├── frontend/
 │   ├── src/
@@ -907,16 +198,12 @@ SurgiScope-research-intelligence-app/
 │   │   │   ├── AskAI.jsx
 │   │   │   └── InterviewGuide.jsx
 │   │   └── ...
-│   │
-│   ├── package.json
-│   └── ...
+│   └── package.json
 │
 ├── .env.example
 ├── .gitignore
 └── README.md
 ```
-
-The project structure may evolve as additional application functionality is added.
 
 ---
 
@@ -924,32 +211,15 @@ The project structure may evolve as additional application functionality is adde
 
 Before running the application, install:
 
-* Python 3.10 or later
+* Python 3.10+
 * Node.js
 * npm
 * Git
 * Google Gemini API key
 
-The backend dependencies are listed in:
-
-```text
-backend/requirements.txt
-```
-
-Current Python dependencies include:
-
-```text
-fastapi
-uvicorn[standard]
-chromadb
-google-genai
-python-dotenv
-sentence-transformers
-```
-
 ---
 
-# Installation
+# Installation & Setup
 
 ## 1. Clone the Repository
 
@@ -958,23 +228,14 @@ git clone https://github.com/minakshi015/SurgiScope-research-intelligence-app.gi
 cd SurgiScope-research-intelligence-app
 ```
 
----
+## 2. Create Python Virtual Environment
 
-## 2. Create the Python Virtual Environment
-
-On Windows PowerShell:
+### Windows PowerShell
 
 ```powershell
 python -m venv backend/venv
-```
-
-Activate the environment:
-
-```powershell
 .\backend\venv\Scripts\Activate.ps1
 ```
-
----
 
 ## 3. Install Backend Dependencies
 
@@ -983,11 +244,9 @@ cd backend
 pip install -r requirements.txt
 ```
 
----
-
 ## 4. Install Frontend Dependencies
 
-Open a separate terminal and run:
+Open another terminal:
 
 ```powershell
 cd frontend
@@ -998,43 +257,29 @@ npm install
 
 # Environment Configuration
 
-The backend requires a Gemini API key.
-
 Create:
 
 ```text
 backend/.env
 ```
 
-Add:
+Add your Gemini API key:
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-The API key is used by the backend and should not be placed in frontend code.
+The API key is used only by the backend and should not be exposed in frontend code.
 
-The `.env` file should not be committed to GitHub.
+Do not commit `.env` to GitHub.
 
 ---
 
 # Running the Application
 
-The application consists of two services:
+The backend and frontend run separately.
 
-```text
-React Frontend
-       ↕
-FastAPI Backend
-```
-
-Both need to be running.
-
----
-
-## Start the Backend
-
-From the project root:
+## Start Backend
 
 ```powershell
 .\backend\venv\Scripts\Activate.ps1
@@ -1048,79 +293,38 @@ Backend:
 http://127.0.0.1:8001
 ```
 
-FastAPI Swagger documentation:
+FastAPI documentation:
 
 ```text
 http://127.0.0.1:8001/docs
 ```
 
----
+## Start Frontend
 
-## Start the Frontend
-
-Open another terminal:
+Open a second terminal:
 
 ```powershell
 cd frontend
 npm run dev
 ```
 
-Vite will display the local development URL, typically:
+Open the local URL displayed by Vite, usually:
 
 ```text
 http://localhost:5173
 ```
 
-Open that URL in your browser.
-
 ---
 
 # Using the Application
 
-## 1. Start the Backend
+### Interview Guide
 
-```powershell
-uvicorn app.main:app --reload --port 8001
-```
+Select one of the predefined research questions to view the generated answer and supporting evidence.
 
----
+### Ask AI
 
-## 2. Start the Frontend
-
-```powershell
-npm run dev
-```
-
----
-
-## 3. Open the Application
-
-Open the URL provided by the Vite development server.
-
----
-
-## 4. Use the Interview Guide
-
-Open the Interview Guide section.
-
-Select one of the six predefined research questions.
-
-The application displays the answer and supporting evidence.
-
-Review the:
-
-* Expert
-* Country
-* Timestamp
-* Supporting transcript passage
-
----
-
-## 5. Use Ask AI
-
-Open the Ask AI section.
-
-Enter a custom research question.
+Enter a custom question related to the provided expert interviews.
 
 Example:
 
@@ -1128,74 +332,45 @@ Example:
 What are the main barriers to robotic surgery adoption?
 ```
 
-The application retrieves relevant evidence and generates the response.
+The system retrieves and filters relevant evidence before generating the answer.
 
----
+### Insights
 
-## 6. Review Evidence
+View common themes and differences across the three expert perspectives.
 
-Inspect the evidence displayed with the answer.
+### Evidence
 
-The evidence can be traced back to the corresponding expert transcript and timestamp.
-
----
-
-## 7. Explore Insights
-
-Open the Insights section to compare the expert perspectives.
-
-The application identifies:
-
-* Common themes
-* Differences
-* Expert-specific perspectives
-* Supporting evidence
+Review the expert, country, timestamp, and transcript passage supporting the response.
 
 ---
 
 # Example Questions
 
-### Adoption
-
 ```text
 What is the current adoption of robotic surgery in Europe?
 ```
-
-### Barriers
 
 ```text
 What are the main barriers to robotic surgery adoption?
 ```
 
-### ROI
-
 ```text
-How important are hospital budgets and ROI when adopting robotic surgery?
+How important are hospital budgets and ROI?
 ```
-
-### Training
 
 ```text
 How important are surgeon training and clinical outcomes?
 ```
 
-### Growth
-
 ```text
 What is the expected adoption trend over the next 3–5 years?
 ```
 
-### Purchasing
-
 ```text
-What is the typical hospital purchasing timeline for robotic surgery?
+What is the typical hospital purchasing timeline?
 ```
 
-### Cross-Expert Comparison
-
-```text
-What do the three experts agree on regarding adoption barriers?
-```
+Cross-expert example:
 
 ```text
 How do the experts differ in their expectations for future growth?
@@ -1205,7 +380,7 @@ How do the experts differ in their expectations for future growth?
 
 # Unsupported Questions
 
-The application is designed to recognize when information is not available in the provided transcripts.
+If the requested information is not available in the provided transcripts, the application does not generate an unsupported response.
 
 For example:
 
@@ -1213,456 +388,126 @@ For example:
 What is the population of France?
 ```
 
-If the transcripts do not contain this information, the system returns:
+Result:
 
 ```text
 Insufficient evidence in the provided transcripts.
 ```
-
-The same behavior applies to unrelated questions or external market information that is not contained in the supplied research material.
 
 ---
 
 # AI-Assisted Development
 
-AI tools were used during development of SurgiScope.
+AI tools were used during development for:
 
-AI assistance was used for areas including:
-
-* Code generation
-* Code refinement
+* Code generation and refinement
 * Debugging
 * Retrieval logic
 * Prompt design
 * Edge-case handling
-* Development guidance
 
-The generated code and suggestions were reviewed, modified, integrated, and tested during implementation.
+The AI-assisted implementation was reviewed, modified, and tested against the provided transcripts.
 
-Gemini is also an intentional component of the application itself and is used for grounded response generation after relevant transcript evidence has been retrieved and filtered.
-
----
-
-# Challenges and Solutions
-
-## Embedding Quota Limitation
-
-An initial implementation considered Gemini embeddings.
-
-During development, the available Gemini free-tier embedding quota was exhausted, resulting in a quota limitation.
-
-### Solution
-
-Embedding generation was moved to:
-
-```text
-Sentence Transformers
-all-MiniLM-L6-v2
-```
-
-The ChromaDB index was rebuilt using the 384-dimensional embeddings generated by the new model.
-
-This separated embedding generation from Gemini's API quota.
+Within the application, **Google Gemini** is used for grounded response generation after relevant evidence has been retrieved and filtered.
 
 ---
 
-## Retrieval Precision
+# Challenges & Solutions
 
-Another challenge was that semantic similarity did not always mean that a passage directly answered the question.
+### 1. Embedding Quota
 
-For example, a passage about robotic surgery adoption might be semantically related to a question about purchasing timelines but still not provide the required evidence.
+The initial embedding approach using Gemini embeddings encountered a free-tier quota limitation.
 
-### Solution
+**Solution:** switched embedding generation to the local `all-MiniLM-L6-v2` model and rebuilt the ChromaDB index.
 
-The retrieval pipeline was strengthened:
+### 2. Retrieval Precision
 
-```text
-Semantic Retrieval
-        ↓
-Topic Classification
-        ↓
-Question-Specific Filtering
-        ↓
-Evidence Selection
-```
+Semantic similarity sometimes returned passages that were related but did not directly answer the question.
 
-This improved the relevance of the evidence passed to the generation layer.
+**Solution:** added topic classification and question-specific relevance filtering.
 
----
+### 3. Unsupported Information
 
-## Unsupported Questions
+The system needed to avoid generating answers when the transcripts did not contain sufficient evidence.
 
-The application needed to avoid generating plausible-sounding answers when the transcripts did not contain the requested information.
+**Solution:** implemented an explicit insufficient-evidence path.
 
-### Solution
+### 4. Different Expert Perspectives
 
-An explicit insufficient-evidence path was implemented:
+Experts sometimes provided different estimates or emphasized different factors.
 
-```text
-No Sufficient Evidence
-        ↓
-Stop Grounded Generation
-        ↓
-Insufficient evidence in the provided transcripts.
-```
+**Solution:** preserve expert attribution, timestamps, and supporting passages rather than combining different estimates into one unsupported conclusion.
 
 ---
 
-## Different Expert Estimates
+# Testing
 
-Experts sometimes provide different estimates or emphasize different factors.
+The application was tested using:
 
-Combining those estimates could create a conclusion that no individual expert actually stated.
+### Supported Questions
 
-### Solution
+* Adoption
+* Barriers
+* ROI / Economics
+* Training / Outcomes
+* Growth Outlook
+* Purchasing Timeline
 
-The system preserves:
+### Unsupported Questions
 
-* Expert attribution
-* Country
-* Timestamp
-* Supporting passage
-* Qualifiers
-* Uncertainty
-
-Expert-specific estimates therefore remain associated with the respective expert.
-
----
-
-# Testing and Validation
-
-The application was tested using supported research questions as well as unsupported questions.
-
-## Supported Questions
-
-Examples:
-
-```text
-What are the main barriers to robotic surgery adoption?
-```
-
-```text
-How important is ROI?
-```
-
-```text
-How important is surgeon training?
-```
-
-```text
-What is the growth outlook?
-```
-
-```text
-What is the hospital purchasing timeline?
-```
-
-The retrieved evidence was checked against the relevant transcript sections.
-
----
-
-## Unsupported Questions
-
-Examples included questions such as:
-
-```text
-What is the population of France?
-```
-
-and other information not contained in the provided transcripts.
-
-Expected result:
+Questions involving information not contained in the transcripts were tested to verify that the system returns:
 
 ```text
 Insufficient evidence in the provided transcripts.
 ```
 
----
-
-## Evidence Validation
-
-The predefined questions were checked against their expected evidence topics:
-
-| Topic               | Evidence Focus                                          |
-| ------------------- | ------------------------------------------------------- |
-| Adoption            | Current adoption and differences between hospital types |
-| Barriers            | Capital, cost, funding and utilization barriers         |
-| ROI / Economics     | Utilization, maintenance, procedure volume and cost     |
-| Training / Outcomes | Training capacity and clinical outcomes                 |
-| Growth              | Expert-specific future growth expectations              |
-| Purchasing Timeline | Procurement and capital-budget timelines                |
+The retrieved evidence for the predefined interview questions was also checked against the corresponding transcript sections.
 
 ---
 
 # Limitations
 
-## Limited Source Dataset
-
-The current implementation uses three expert transcripts.
-
-It does not represent the complete European robotic surgery market.
-
----
-
-## No External Market Validation
-
-The application does not independently validate interview statements against external:
-
-* Market databases
-* Government datasets
-* Company reports
-* Industry reports
-* External research databases
-
-The current system is intentionally grounded in the provided transcripts.
+* The current dataset contains three expert transcripts.
+* The application is focused on the provided research material.
+* It does not independently validate claims using external market databases.
+* Expert estimates remain attributed to individual experts.
+* The system has not been benchmarked on a 30+ transcript dataset.
+* The current vector database is local ChromaDB.
 
 ---
 
-## No Large-Scale Benchmark
+# Future Scaling
 
-The current implementation has not been benchmarked on a 30+ transcript dataset.
-
-Therefore, no large-scale performance claims are made.
-
----
-
-## Local Vector Database
-
-The current implementation uses ChromaDB locally.
-
-A production system with a substantially larger dataset may require a managed vector database or other scalable storage solution.
-
----
-
-# Scaling to 30+ Transcripts
-
-The same core RAG architecture can be extended to a larger transcript collection.
-
-A scaled ingestion workflow could be:
-
-```text
-New Transcripts
-       ↓
-Automated Ingestion
-       ↓
-Parsing + Chunking
-       ↓
-Metadata Extraction
-       ↓
-Batch Embedding
-       ↓
-Vector Database
-       ↓
-Metadata Filtering
-       ↓
-Semantic Retrieval
-       ↓
-Relevance Filtering
-       ↓
-Grounded Generation
-```
-
-Potential improvements include:
+For a larger collection of 30+ transcripts, the same RAG architecture can be extended with:
 
 * Automated transcript ingestion
 * Batch embedding generation
-* Structured metadata extraction
-* Metadata-based pre-filtering
-* Efficient top-k retrieval
-* Retrieval evaluation
-* Response evaluation
-* Monitoring
-* Managed vector database deployment
+* Metadata-based filtering
+* Larger-scale retrieval evaluation
+* Efficient vector storage
+* Retrieval and answer evaluation
+* Production vector database deployment
 
-These are future scaling considerations and have not been benchmarked in the current implementation.
+The current implementation demonstrates the architecture using the provided three transcripts.
 
 ---
 
-# Security
+# Core Design Principle
 
-## API Key Protection
+> **Evidence first, generation second.**
 
-The Gemini API key is stored in an environment variable:
+SurgiScope retrieves and filters relevant evidence from the provided expert interviews before using Gemini to generate the final response.
 
-```env
-GEMINI_API_KEY=your_api_key_here
-```
-
-It is not placed in the frontend source code.
+This keeps the research output **traceable, source-aware, and explicit about insufficient evidence**.
 
 ---
 
-## Git Protection
+## Repository
 
-Sensitive environment files should not be committed.
-
-The `.gitignore` configuration excludes local environment files and generated local data.
-
-Never commit:
-
-```text
-.env
-API keys
-Secret tokens
-Credentials
-```
-
----
-
-# Future Improvements
-
-## Larger Dataset Support
-
-Extend the ingestion pipeline to support dozens or hundreds of expert transcripts.
-
----
-
-## Automated Transcript Upload
-
-Allow researchers to upload new transcript files and automatically:
-
-```text
-Upload
-  ↓
-Parse
-  ↓
-Chunk
-  ↓
-Embed
-  ↓
-Index
-```
-
----
-
-## Advanced Metadata Filtering
-
-Support filtering by:
-
-* Country
-* Expert
-* Interview
-* Topic
-* Date
-* Source
-
----
-
-## Retrieval Evaluation
-
-Introduce a formal evaluation dataset to measure:
-
-* Retrieval precision
-* Retrieval recall
-* Evidence coverage
-* Answer faithfulness
-* Unsupported-answer rate
-
----
-
-## Production Vector Database
-
-For larger datasets, move from local ChromaDB to a production-ready vector database architecture.
-
----
-
-## Research Export
-
-Add the ability to export:
-
-* Answers
-* Evidence
-* Expert comparisons
-* Insights
-
-into structured research reports.
-
----
-
-# Core Design Principles
-
-## Evidence First
-
-Relevant evidence is retrieved before response generation.
-
-## Source Traceability
-
-Expert, country, timestamp, and source information remain attached to retrieved evidence.
-
-## Expert Attribution
-
-Expert-specific claims remain attributed to the relevant expert.
-
-## No Unsupported Generation
-
-When sufficient evidence is unavailable, the system explicitly states that.
-
-## Retrieval Before Generation
-
-The LLM is used after the evidence retrieval and filtering stages rather than being asked to independently answer from unrestricted knowledge.
-
----
-
-# Repository
-
-GitHub:
-
+**GitHub:**
 https://github.com/minakshi015/SurgiScope-research-intelligence-app
 
----
-
-# Author
+## Author
 
 **Minakshi Ghodella**
-
 B.E. Artificial Intelligence & Data Science
-
-Pune, Maharashtra, India
-
----
-
-## Core Architecture Summary
-
-```text
-                 SURGISCOPE
-                     │
-                     ▼
-          ┌─────────────────────┐
-          │ Expert Transcripts  │
-          └──────────┬──────────┘
-                     ↓
-              Parsing + Chunking
-                     ↓
-          Sentence Transformers
-             all-MiniLM-L6-v2
-                     ↓
-             384-D Embeddings
-                     ↓
-                 ChromaDB
-                     │
-                     │
-              ───── QUERY ─────
-                     │
-                     ↓
-              User Question
-                     ↓
-              Query Embedding
-                     ↓
-            Semantic Retrieval
-                     ↓
-            Topic Classification
-                     ↓
-            Relevance Filtering
-                     ↓
-            Selected Evidence
-                     ↓
-             Google Gemini
-                     ↓
-          Grounded Final Answer
-                     ↓
-       Answer + Expert + Timestamp
-                     ↓
-              React Frontend
-```
-
-> **SurgiScope — Evidence first, generation second.**
