@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "http://127.0.0.1:8001";
 
 function AskAIIcon({ name, className = "" }) {
   return (
@@ -153,9 +153,7 @@ function AskAI() {
           )}
 
           <span>
-            {evidenceStatus === "Insufficient evidence"
-              ? "Insufficient evidence"
-              : "Evidence grounded"}
+            {evidenceStatus || "Evidence grounded"}
           </span>
 
         </div>
@@ -285,7 +283,7 @@ function AskAI() {
                 <p>
                   {displayedEvidence.length > 0
                     ? "Generated from retrieved transcript evidence."
-                    : "No sufficient transcript evidence was retrieved."}
+                      : "No transcript evidence met the relevance threshold."}
                 </p>
 
               </div>
@@ -555,7 +553,8 @@ function AskAI() {
 
       {!loading &&
         hasAsked &&
-        evidenceStatus === "Supported" && (
+        (evidenceStatus === "Supported" ||
+          evidenceStatus === "Limited evidence") && (
 
           <div className="grounded-status">
 
@@ -563,7 +562,7 @@ function AskAI() {
 
             <strong>Evidence status</strong>
 
-            <span>Grounded in provided transcripts</span>
+            <span>{evidenceStatus}</span>
 
           </div>
 

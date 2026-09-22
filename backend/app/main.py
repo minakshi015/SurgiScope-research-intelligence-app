@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 import json
+import re
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -29,7 +30,304 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MAX_EVIDENCE_DISTANCE = 0.175
+STRONG_SEMANTIC_DISTANCE = 0.78
+MAX_REVIEW_DISTANCE = 1.60
+ASK_CANDIDATE_COUNT = 30
+
+RELEVANCE_STOPWORDS = {
+    "about", "after", "also", "and", "are", "been", "being", "does", "for",
+    "from", "how", "into", "more", "most", "what", "when", "where", "which",
+    "with", "would", "the", "their", "there", "this", "that", "than", "they",
+    "them", "these", "those", "over", "under", "will", "were", "was", "have",
+    "has", "had", "can", "could", "should", "did", "not", "in", "of", "to",
+    "on", "by", "as", "at", "or", "an", "a", "is", "it", "its", "be", "do",
+    "next", "current", "role", "robotic", "surgery", "europe", "market",
+    "expert", "experts", "agree", "agreement",
+}
+
+RELEVANCE_CANONICAL_TERMS = {
+    "adopt": "adoption",
+    "adopting": "adoption",
+    "adopted": "adoption",
+    "growing": "growth",
+    "grow": "growth",
+    "increase": "growth",
+    "increasing": "growth",
+    "trend": "growth",
+    "expected": "expect",
+    "expectation": "expect",
+    "purchasing": "purchase",
+    "procurement": "purchase",
+    "budgets": "budget",
+    "hospitals": "hospital",
+    "months": "month",
+    "years": "year",
+    "economics": "economic",
+    "costs": "cost",
+    "financial": "finance",
+    "utilization": "utilisation",
+    "centers": "centre",
+    "centres": "centre",
+    "outcomes": "outcome",
+    "surgeons": "surgeon",
+    "barriers": "barrier",
+    "budgets": "budget",
+    "investments": "investment",
+    "returns": "return",
+    "months": "month",
+    "years": "year",
+}
+
+QUESTION_TOPICS = {
+    "adoption": (
+        "adoption", "access", "standard", "hospital", "centre", "university",
+        "academic", "private", "regional", "community", "trust",
+    ),
+    "barriers": (
+        "barrier", "cost", "capital", "budget", "funding", "finance",
+        "approval", "economic", "utilisation", "training", "maintenance",
+        "volume", "business case", "sustainable",
+    ),
+    "roi_economics": (
+        "roi", "return", "investment", "economic", "cost", "budget", "capital",
+        "finance", "utilisation", "procedure volume", "maintenance", "payback",
+        "business case", "clinical strategy", "length of stay",
+    ),
+    "training_outcomes": (
+        "training", "trained", "surgeon", "staff", "theatre", "clinical",
+        "outcome", "length of stay", "recruitment", "utilisation", "procedure",
+    ),
+    "growth_outlook": (
+        "trend", "growth", "growing", "increase", "increasing", "accelerate",
+        "outlook", "expected", "expect", "future", "annual", "year",
+    ),
+    "purchasing_timeline": (
+        "purchase", "procurement", "timeline", "time", "month", "approval",
+        "committee", "capital cycle", "budget cycle", "funding", "buy",
+    ),
+}
+
+TOPIC_PRIORITY = (
+    "barriers",
+    "roi_economics",
+    "training_outcomes",
+    "growth_outlook",
+    "purchasing_timeline",
+    "adoption",
+)
+
+TOPIC_STRONG_ANCHORS = {
+    "adoption": (
+        "adoption", "access", "standard", "uneven", "concentrated", "selected",
+    ),
+    "barriers": (
+        "barrier", "capital budget approval", "economic case", "cost", "funding",
+        "training capacity",
+    ),
+    "roi_economics": (
+        "roi", "payback", "economic case", "economic", "finance", "total cost",
+        "maintenance", "procedure volume", "clinical strategy", "length of stay",
+    ),
+    "training_outcomes": (
+        "training", "trained", "surgeon", "staff", "theatre", "clinical",
+        "outcome", "length of stay", "recruitment", "utilisation",
+    ),
+    "growth_outlook": (
+        "expect", "expected", "outlook", "growth", "annual", "accelerate",
+        "increase", "gradual", "future", "percent",
+    ),
+    "purchasing_timeline": (
+        "month", "purchase", "procurement", "capital cycle", "budget cycle",
+    ),
+}
+
+MIN_TOPIC_ANCHORS = {
+    "growth_outlook": 2,
+    "purchasing_timeline": 2,
+}
+
+BARRIER_DIRECT_ANCHORS = (
+    "barrier", "capital budget approval", "funding", "training capacity",
+)
+
+UNSUPPORTED_QUERY_TERMS = (
+    "market share", "revenue", "population", "sales", "market size",
+    "company value", "profit", "2025 market",
+)
+
+
+def _relevance_terms(value: str) -> set[str]:
+    """Return simple content terms for deterministic local relevance scoring."""
+
+    terms = re.findall(r"[a-z0-9]+", value.lower())
+    return {
+        RELEVANCE_CANONICAL_TERMS.get(term, term)
+        for term in terms
+        if len(term) >= 3 and term not in RELEVANCE_STOPWORDS
+    }
+
+
+def _normalise_text(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def detect_question_topic(query: str) -> str | None:
+    """Choose the most specific research intent using normalized anchor terms."""
+
+    normalized_query = _normalise_text(query)
+    query_terms = _relevance_terms(query)
+    scores = {}
+
+    for topic, anchors in QUESTION_TOPICS.items():
+        score = 0
+        for anchor in anchors:
+            normalized_anchor = _normalise_text(anchor)
+            if " " in normalized_anchor:
+                score += 2 if normalized_anchor in normalized_query else 0
+            elif normalized_anchor in query_terms:
+                score += 1
+        scores[topic] = score
+
+    best_topic = max(
+        TOPIC_PRIORITY,
+        key=lambda topic: (scores[topic], -TOPIC_PRIORITY.index(topic)),
+    )
+
+    return best_topic if scores[best_topic] else None
+
+
+def _contains_anchor(text: str, anchor: str) -> bool:
+    normalized_text = _normalise_text(text)
+    normalized_anchor = _normalise_text(anchor)
+
+    if " " in normalized_anchor:
+        return normalized_anchor in normalized_text
+
+    return normalized_anchor in _relevance_terms(text)
+
+
+def _topic_anchor_score(topic: str, text: str) -> int:
+    return sum(
+        1
+        for anchor in TOPIC_STRONG_ANCHORS[topic]
+        if _contains_anchor(text, anchor)
+    )
+
+
+def _is_relevant_evidence(
+    query: str,
+    item: dict,
+    topic: str | None = None,
+) -> bool:
+    """Require semantic, question-term, and topic-specific evidence signals."""
+
+    query_terms = _relevance_terms(query)
+    text = item.get("text", "")
+    text_terms = _relevance_terms(text)
+    overlap = query_terms & text_terms
+    distance = item.get("distance", float("inf"))
+    topic = topic or detect_question_topic(query)
+
+    if (
+        not query_terms
+        or not topic
+        or not isinstance(distance, (int, float))
+    ):
+        return False
+
+    topic_score = _topic_anchor_score(topic, text)
+    if topic == "barriers" and not any(
+        _contains_anchor(text, anchor)
+        for anchor in BARRIER_DIRECT_ANCHORS
+    ):
+        return False
+
+    if (
+        topic_score < MIN_TOPIC_ANCHORS.get(topic, 1)
+        or distance > MAX_REVIEW_DISTANCE
+    ):
+        return False
+
+    overlap_ratio = len(overlap) / len(query_terms)
+
+    # Two direct topic anchors can establish relevance even when the expert
+    # uses different wording from the question (for example, "total cost of
+    # ownership" for an ROI question).
+    if topic_score >= 2 and distance <= MAX_REVIEW_DISTANCE:
+        return True
+
+    # Strong semantic retrieval still needs a topic-specific anchor. This
+    # prevents a generic adoption passage from supporting a barriers question.
+    if distance <= STRONG_SEMANTIC_DISTANCE and overlap and topic_score >= 1:
+        return True
+
+    return (
+        topic_score >= 1
+        and len(overlap) >= 1
+        and overlap_ratio >= 0.20
+    )
+
+
+def _evidence_score(query: str, item: dict, topic: str) -> tuple:
+    query_terms = _relevance_terms(query)
+    text_terms = _relevance_terms(item.get("text", ""))
+    overlap = query_terms & text_terms
+    topic_score = _topic_anchor_score(topic, item.get("text", ""))
+    distance = item.get("distance", float("inf"))
+
+    if topic == "roi_economics":
+        return (
+            -distance,
+            topic_score,
+            len(overlap),
+        )
+
+    return (
+        topic_score,
+        -distance,
+        len(overlap),
+    )
+
+
+def _select_balanced_evidence(
+    query: str,
+    candidates: list[dict],
+    topic: str,
+    limit: int,
+) -> list[dict]:
+    relevant = [
+        item
+        for item in candidates
+        if _is_relevant_evidence(query, item, topic)
+    ]
+    ranked = sorted(
+        relevant,
+        key=lambda item: _evidence_score(query, item, topic),
+        reverse=True,
+    )
+
+    selected = []
+    selected_keys = set()
+
+    # One strongest passage per expert gives cross-expert questions balanced
+    # evidence before any additional passages are considered.
+    for item in ranked:
+        expert_key = item.get("expert") or item.get("country")
+        if expert_key in selected_keys:
+            continue
+        selected.append(item)
+        selected_keys.add(expert_key)
+        if len(selected) >= limit:
+            return selected
+
+    for item in ranked:
+        if item in selected:
+            continue
+        selected.append(item)
+        if len(selected) >= limit:
+            break
+
+    return selected
 
 GUIDE_RELEVANCE_TERMS = {
     1: (
@@ -39,17 +337,17 @@ GUIDE_RELEVANCE_TERMS = {
     ),
     2: (
         "barrier", "cost", "capital", "budget", "funding", "finance",
-        "utilisation", "utilization", "training", "trained", "procedure",
-        "volume", "economic", "sustainable",
+        "approval", "training capacity", "economic case",
     ),
     3: (
         "roi", "capital", "budget", "procedure", "volume", "utilisation",
         "utilization", "maintenance", "pay", "cost", "economic", "finance",
-        "business case", "investment",
+        "business case", "investment", "outcomes", "recruitment",
     ),
     4: (
         "training", "trained", "surgeon", "surgeons", "theatre", "staff",
         "outcomes", "clinical", "utilisation", "utilization", "procedure",
+        "operational",
     ),
     5: (
         "expect", "expected", "outlook", "growth", "growing", "increase",
@@ -146,14 +444,26 @@ def ask_question(
     query: str,
     n_results: int = 6,
 ):
-    evidence = search_transcripts(query, n_results)
+    normalized_query = _normalise_text(query)
+    has_unsupported_request = any(
+        term in normalized_query
+        for term in UNSUPPORTED_QUERY_TERMS
+    )
+    topic = detect_question_topic(query)
 
-    if (
-        not evidence
-        or evidence[0].get("distance", float("inf"))
-        > MAX_EVIDENCE_DISTANCE
-    ):
+    if has_unsupported_request or topic is None:
         evidence = []
+    else:
+        candidates = search_transcripts(
+            query,
+            max(n_results, ASK_CANDIDATE_COUNT),
+        )
+        evidence = _select_balanced_evidence(
+            query=query,
+            candidates=candidates,
+            topic=topic,
+            limit=n_results,
+        )
 
     if evidence:
         generated = generate_grounded_answer(
@@ -162,7 +472,12 @@ def ask_question(
         )
         answer = generated["answer"]
         perspective = generated["perspective"]
-        evidence_status = "Supported"
+        expert_count = len({item.get("expert") for item in evidence})
+        evidence_status = (
+            "Supported"
+            if expert_count >= 2
+            else "Limited evidence"
+        )
     else:
         answer = "Insufficient evidence in the provided transcripts."
         perspective = []
