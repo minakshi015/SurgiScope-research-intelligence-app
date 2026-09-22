@@ -154,7 +154,130 @@ The generation process is instructed to:
 # System Architecture
 
 ```text
-┌──────────────────────────┐ │ 3 Expert Transcripts │ │ France / Germany / UK │ └────────────┬─────────────┘ │ ▼ ┌──────────────────────────┐ │ Transcript Parsing │ │ + Chunking │ └────────────┬─────────────┘ │ ┌────────────┴────────────┐ │ │ ▼ ▼ ┌──────────────────┐ ┌────────────────────┐ │ Transcript Text │ │ Metadata │ │ Smaller Chunks │ │ Expert │ │ │ │ Country │ └────────┬─────────┘ │ Timestamp │ │ │ Source File │ │ └──────────┬─────────┘ ▼ │ ┌──────────────────────┐ │ │ Sentence Transformers│ │ │ all-MiniLM-L6-v2 │ │ └──────────┬───────────┘ │ │ 384-dim Embeddings │ └──────────────┬───────────┘ │ ▼ ┌─────────────────────┐ │ ChromaDB │ │ │ │ Embeddings │ │ Transcript Text │ │ Metadata │ └──────────┬──────────┘ │ INDEXING COMPLETE │ ════════════════════════════════════╪════════════════════════════════════ │ ┌──────────┴──────────┐ │ │ │ QUERY PIPELINE │ │ │ ▼ │ ┌──────────────────────┐ │ │ React Frontend │ │ │ Interview Guide │ │ │ Ask AI / Insights │ │ └──────────┬───────────┘ │ │ HTTP / REST │ ▼ │ ┌──────────────────────┐ │ │ FastAPI Backend │ │ └──────────┬───────────┘ │ ▼ │ ┌──────────────────────┐ │ │ Query Embedding │ │ │ Sentence Transformers│ │ └──────────┬───────────┘ │ │ │ └─────────┐ │ ▼ │ ┌─────────────┐ │ │ ChromaDB │◄──┘ │ Retrieval │ └──────┬──────┘ ▼ ┌─────────────────────┐ │ Topic Classification│ │ │ │ Adoption │ │ Barriers │ │ ROI / Economics │ │ Training / Outcomes │ │ Growth │ │ Purchasing Timeline │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ Relevance Filtering │ │ │ │ Is the passage │ │ actually answering │ │ the question? │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ Selected Evidence │ │ │ │ Expert │ │ Country │ │ Timestamp │ │ Transcript Passage │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ Google Gemini │ │ Grounded Generation │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ Final Answer │ │ + Evidence │ │ + Source Info │ └──────────┬──────────┘ ▼ ┌─────────────────────┐ │ React Frontend │ │ Display Result │ └─────────────────────┘
+                         SYSTEM ARCHITECTURE
+
+┌─────────────────────────────────────────────────────────────┐
+│              INDEXING / INGESTION PIPELINE                  │
+└─────────────────────────────────────────────────────────────┘
+
+                    ┌───────────────────────┐
+                    │ 3 Expert Transcripts  │
+                    │ France / Germany / UK │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ Transcript Parsing     │
+                    │ + Chunking             │
+                    └───────────┬───────────┘
+                                ↓
+               ┌────────────────┴────────────────┐
+               ↓                                 ↓
+    ┌─────────────────────┐          ┌─────────────────────┐
+    │ Transcript Text     │          │ Metadata            │
+    │ Smaller chunks      │          │ Expert              │
+    │                     │          │ Country             │
+    │                     │          │ Timestamp           │
+    │                     │          │ Source file         │
+    └──────────┬──────────┘          └──────────┬──────────┘
+               ↓                                │
+    ┌─────────────────────┐                     │
+    │ Sentence            │                     │
+    │ Transformers        │                     │
+    │ all-MiniLM-L6-v2    │                     │
+    └──────────┬──────────┘                     │
+               ↓                                │
+        384-dim embeddings                      │
+               ↓                                │
+               └──────────────┬─────────────────┘
+                              ↓
+                  ┌─────────────────────────┐
+                  │        ChromaDB         │
+                  │ Embedding + Text +      │
+                  │ Metadata                │
+                  └────────────┬────────────┘
+                               ↓
+                       ┌──────────────┐
+                       │ INDEXING DONE│
+                       └──────────────┘
+
+
+═══════════════════════════════════════════════════════════════
+                    SHARED KNOWLEDGE BASE
+═══════════════════════════════════════════════════════════════
+
+                         ┌─────────────┐
+                         │  ChromaDB   │
+                         │ Vector Store│
+                         └──────┬──────┘
+                                │
+                                │
+═══════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│                 QUERY / RETRIEVAL PIPELINE                  │
+└─────────────────────────────────────────────────────────────┘
+
+                    ┌───────────────────────┐
+                    │   User Asks Question  │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ React + Vite          │
+                    │ Frontend / Ask AI     │
+                    └───────────┬───────────┘
+                                ↓
+                         HTTP / REST
+                                ↓
+                    ┌───────────────────────┐
+                    │ FastAPI Backend       │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ Query Embedding       │
+                    │ Sentence Transformers │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ ChromaDB              │
+                    │ Semantic Retrieval    │
+                    │ Top Candidate Chunks  │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ Topic Classification  │
+                    │ Adoption / Barriers   │
+                    │ ROI / Training /      │
+                    │ Growth / Timeline     │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ Relevance Filtering   │
+                    │ Is the passage        │
+                    │ answering the query?  │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ Selected Evidence     │
+                    │ Expert + Country      │
+                    │ Timestamp + Quote     │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ Google Gemini LLM     │
+                    │ Grounded Generation  │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ Final Answer          │
+                    │ + Evidence            │
+                    │ + Expert              │
+                    │ + Timestamp           │
+                    └───────────┬───────────┘
+                                ↓
+                    ┌───────────────────────┐
+                    │ React Frontend        │
+                    │ Display to User       │
+                    └───────────────────────┘
 ```
 
 ---
